@@ -1,22 +1,28 @@
 # GPT 图像代理插件
 这是一款 **Personal Codex** 插件，可通过 MCP 协议调用 GPT Image 2 相关工具。
 
+## 安装方式
+
+- 推荐直接给本仓库地址给 Codex 让它帮你安装
+- 或使用 cc-switch 工具安装
+
 ## 环境配置（必须）
-1. 将 `config\config.example.json` 复制为 `config/config.json` 文件中配置接口密钥，配置示例如下：
+1. 将 `config/config.example.json` 复制为 `config/config.json` 并配置，必须配置示例如下：
 ```json
 {
-  "baseUrl": "你的接口基础地址",
+  "baseUrl": "你的接口基础地址，通常以 /v1 结尾",
   "apiKey": "你的接口密钥"
 }
 ```
-2. （可选）可在 `config/config.json` 中修改**接口基础地址**、**文件输出目录**、默认参数以及可选的**代理地址**。若未填写 `apiKey`，程序会自动读取环境变量 `MISAKA_GPT_IMAGE_API_KEY` 作为备用密钥。
+
+1. （可选）可在 `config/config.json` 中修改**文件输出目录**、默认参数以及可选的**代理地址**。
 
 ## Codex 配置（必须）
-请在 codex 的 `config.toml`（TOML 格式配置文件）中添加以下内容，**推荐使用 cc-switch 工具编辑该配置文件**：
+请在 codex 的 `config.toml`（TOML 格式配置文件）中添加以下内容，其中 `args` 的具体路径取决于你安装地址，**推荐使用 cc-switch 工具编辑该配置文件**：
 ```toml
 [mcp_servers.gpt_image_agent]
 command = "node"
-args = ['C:\Users\misak\plugins\gpt-image-agent\server\index.mjs']
+args = ['C:\Users\{{用户名}}\plugins\gpt-image-agent\server\index.mjs']
 ```
 
 ## 可用工具
