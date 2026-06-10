@@ -25,6 +25,8 @@ command = "node"
 args = ['C:\Users\{{用户名}}\plugins\gpt-image-agent\server\index.mjs']
 ```
 
+注意：配置完成后需要重启 codex 生效
+
 ## 可用工具
 - `generate_image`：文生图功能
 - `generate_image_batch`：批量文生图任务，支持并发数限制
