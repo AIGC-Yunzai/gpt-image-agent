@@ -1,0 +1,35 @@
+{
+  "name": "gpt-image-agent",
+  "version": "0.1.0+codex.20260610134012",
+  "description": "Generate and edit images with GPT Image 2 through a local MCP server.",
+  "author": {
+    "name": "Misaka"
+  },
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "image-generation",
+    "image-editing",
+    "gpt-image-2",
+    "codex"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "GPT Image Agent",
+    "shortDescription": "Generate and edit images with GPT Image 2.",
+    "longDescription": "GPT Image Agent adds local MCP tools for GPT Image 2 text-to-image generation, batch generation, and image editing. It saves generated files locally and reads API keys from config/config.json.",
+    "developerName": "Misaka",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Generate an image with GPT Image 2",
+      "Edit this local image with GPT Image 2",
+      "Batch-generate image assets"
+    ],
+    "brandColor": "#2563EB"
+  }
+}

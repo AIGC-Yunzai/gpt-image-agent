@@ -1,0 +1,17 @@
+{
+  "name": "gpt-image-agent",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Local Codex MCP plugin for GPT Image 2 generation and editing.",
+  "scripts": {
+    "check": "node --check server/index.mjs",
+    "smoke": "node scripts/mock-smoke.mjs",
+    "start": "node server/index.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "https-proxy-agent": "^9.0.0",
+    "zod": "^4.1.13"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "gpt-image-agent": {
+      "command": "node",
+      "args": [
+        "server/index.mjs"
+      ],
+      "env_vars": [],
+      "startup_timeout_sec": 30,
+      "tool_timeout_sec": 600,
+      "default_tools_approval_mode": "prompt"
+    }
+  }
+}

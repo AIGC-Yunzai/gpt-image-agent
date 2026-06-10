@@ -1,0 +1,14 @@
+{
+  "baseUrl": "https://api.openai.com/v1",
+  "apiKey": "YOUR_API_KEY_HERE",
+  "model": "gpt-image-2",
+  "outputDir": "C:\\Users\\misak\\.codex\\generated_images\\gpt-image-agent",
+  "defaultSize": "1024x1024",
+  "defaultQuality": "medium",
+  "defaultOutputFormat": "png",
+  "proxyUrl": "",
+  "requestTimeoutMs": 600000,
+  "maxBatchJobs": 20,
+  "maxBatchConcurrency": 3,
+  "maxTotalImagesPerBatch": 50
+}
