@@ -1,5 +1,10 @@
 # GPT 图像代理插件
-这是一款 **Personal Codex** 插件，可通过 MCP 协议调用 GPT Image 2 相关工具。
+- 这是一款 **Personal Codex** 插件，可通过 MCP 协议调用 GPT Image 2 相关工具
+- 使用 OpenAI API 绘画接口接入个人 gpt-image-2 站点
+- 适用场景：1. 节约官Key Token；2. 某些无 gpt image 2 工具的公益站。
+
+### 预览
+<img width="1402" height="842" alt="image" src="https://github.com/user-attachments/assets/587a86e6-07a4-433a-ad0a-7ce6b1d892b6" />
 
 ## 安装方式
 
