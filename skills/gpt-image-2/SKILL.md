@@ -5,7 +5,7 @@ description: "Generate, batch-generate, or edit images through the local GPT Ima
 
 # GPT Image 2
 
-Use the `gpt-image-agent` MCP tools for image work:
+Use the `misaka-gpt-image-agent` MCP tools for image work:
 
 - `generate_image` for one prompt.
 - `generate_image_batch` for many prompt jobs.

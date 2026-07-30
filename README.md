@@ -27,7 +27,7 @@
 ```toml
 [mcp_servers.gpt_image_agent]
 command = "node"
-args = ['C:\Users\{{用户名}}\plugins\gpt-image-agent\server\index.mjs']
+args = ['C:\Users\{{用户名}}\plugins\misaka-gpt-image-agent\server\index.mjs']
 ```
 
 注意：配置完成后需要重启 codex 生效

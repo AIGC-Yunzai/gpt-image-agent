@@ -104,7 +104,7 @@ async function main() {
       MISAKA_GPT_IMAGE_API_KEY: "",
     },
   });
-  const client = new Client({ name: "gpt-image-agent-smoke", version: "0.1.0" });
+  const client = new Client({ name: "misaka-gpt-image-agent-smoke", version: "0.1.0" });
   await client.connect(transport);
 
   const tools = await client.listTools();

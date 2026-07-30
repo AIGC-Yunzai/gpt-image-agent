@@ -27,7 +27,7 @@ const DEFAULT_CONFIG = {
   baseUrl: "https://api.openai.com/v1",
   apiKey: "",
   model: GPT_IMAGE_2,
-  outputDir: path.join(process.env.USERPROFILE || pluginRoot, ".codex", "generated_images", "gpt-image-agent"),
+  outputDir: path.join(process.env.USERPROFILE || pluginRoot, ".codex", "generated_images", "misaka-gpt-image-agent"),
   defaultSize: "1024x1024",
   defaultQuality: "medium",
   defaultOutputFormat: "png",
@@ -86,7 +86,7 @@ class UpstreamError extends Error {
 }
 
 function log(message) {
-  console.error(`[gpt-image-agent] ${message}`);
+  console.error(`[misaka-gpt-image-agent] ${message}`);
 }
 
 async function readJsonFile(file) {
@@ -444,7 +444,7 @@ function multipartEscape(value) {
 }
 
 function buildMultipart(fields, files) {
-  const boundary = `----gpt-image-agent-${randomUUID()}`;
+  const boundary = `----misaka-gpt-image-agent-${randomUUID()}`;
   const chunks = [];
   const push = (value) => chunks.push(Buffer.isBuffer(value) ? value : Buffer.from(value, "utf8"));
 
@@ -748,7 +748,7 @@ function toolError(error) {
 async function main() {
   const config = await loadConfig();
   const server = new Server({
-    name: "gpt-image-agent",
+    name: "misaka-gpt-image-agent",
     version: "0.1.0",
   }, {
     capabilities: {
@@ -785,6 +785,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(`[gpt-image-agent] fatal: ${error.stack || error.message}`);
+  console.error(`[misaka-gpt-image-agent] fatal: ${error.stack || error.message}`);
   process.exit(1);
 });

@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "gpt-image-agent": {
+    "misaka-gpt-image-agent": {
       "command": "node",
       "args": [
         "server/index.mjs"
