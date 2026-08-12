@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import http from "node:http";
 import https from "node:https";
 import path from "node:path";
+import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { HttpsProxyAgent } from "https-proxy-agent";
@@ -50,10 +51,11 @@ const GenerateArgsSchema = z.object({
   outputCompression: z.coerce.number().int().min(0).max(100).optional(),
   n: z.coerce.number().int().min(1).max(10).optional(),
   outputName: z.string().trim().min(1).optional(),
+  outputDir: z.string().trim().min(1).optional(),
   moderation: ModerationSchema.optional(),
 }).strip();
 
-const BatchJobSchema = GenerateArgsSchema.extend({
+const BatchJobSchema = GenerateArgsSchema.omit({ outputDir: true }).extend({
   outputName: z.string().trim().min(1).optional(),
 });
 
@@ -61,6 +63,7 @@ const BatchArgsSchema = z.object({
   jobs: z.array(BatchJobSchema).min(1),
   concurrency: z.coerce.number().int().min(1).optional(),
   failFast: z.boolean().optional(),
+  outputDir: z.string().trim().min(1).optional(),
 }).strip();
 
 const EditArgsSchema = z.object({
@@ -72,6 +75,7 @@ const EditArgsSchema = z.object({
   outputFormat: OutputFormatSchema.optional(),
   n: z.coerce.number().int().min(1).max(10).optional(),
   outputName: z.string().trim().min(1).optional(),
+  outputDir: z.string().trim().min(1).optional(),
   moderation: ModerationSchema.optional(),
 }).strip();
 
@@ -120,7 +124,7 @@ async function loadConfig() {
   }
 
   config.baseUrl = normalizeBaseUrl(config.baseUrl);
-  config.outputDir = path.resolve(config.outputDir);
+  config.outputDir = resolveOutputDir(config.outputDir);
   config.defaultOutputFormat = normalizeOutputFormat(config.defaultOutputFormat);
 
   if (config.model !== GPT_IMAGE_2) {
@@ -131,6 +135,25 @@ async function loadConfig() {
   validateQuality(config.defaultQuality);
   await fs.mkdir(config.outputDir, { recursive: true });
   return config;
+}
+
+export function expandHomeDirectory(value) {
+  const raw = String(value || "").trim();
+  if (raw === "~") {
+    return os.homedir();
+  }
+  if (raw.startsWith("~/") || raw.startsWith("~\\")) {
+    return path.join(os.homedir(), raw.slice(2));
+  }
+  return raw;
+}
+
+function resolveOutputDir(value) {
+  return path.resolve(expandHomeDirectory(value));
+}
+
+function outputDirForCall(config, args) {
+  return args.outputDir ? resolveOutputDir(args.outputDir) : config.outputDir;
 }
 
 function normalizeBaseUrl(raw) {
@@ -497,7 +520,7 @@ async function saveImageResponse(config, response, args, meta, context = {}) {
   for (let i = 0; i < data.length; i += 1) {
     const item = data[i];
     const stem = buildOutputStem(args, i, context);
-    const outPath = await uniqueOutputPath(config.outputDir, stem, meta.outputFormat);
+    const outPath = await uniqueOutputPath(context.outputDir || config.outputDir, stem, meta.outputFormat);
     let bytes;
     let source = "b64_json";
 
@@ -531,8 +554,9 @@ async function saveImageResponse(config, response, args, meta, context = {}) {
 async function runGenerate(config, rawArgs, context = {}) {
   const args = parseArgs(GenerateArgsSchema, rawArgs);
   const request = buildGeneratePayload(config, args);
+  const outputDir = outputDirForCall(config, args);
   const response = await requestJson(config, "/images/generations", request.payload);
-  const images = await saveImageResponse(config, response, args, request, context);
+  const images = await saveImageResponse(config, response, args, request, { ...context, outputDir });
 
   return {
     ok: true,
@@ -543,6 +567,7 @@ async function runGenerate(config, rawArgs, context = {}) {
     size: request.size,
     quality: request.quality,
     outputFormat: request.outputFormat,
+    outputDir,
     images,
   };
 }
@@ -550,6 +575,7 @@ async function runGenerate(config, rawArgs, context = {}) {
 async function runEdit(config, rawArgs) {
   const args = parseArgs(EditArgsSchema, rawArgs);
   const request = buildEditFields(config, args);
+  const outputDir = outputDirForCall(config, args);
   const imageFiles = [];
   for (const imagePath of args.imagePaths) {
     imageFiles.push({
@@ -567,7 +593,7 @@ async function runEdit(config, rawArgs) {
   }
 
   const response = await requestMultipart(config, "/images/edits", request.fields, files);
-  const images = await saveImageResponse(config, response, args, request);
+  const images = await saveImageResponse(config, response, args, request, { outputDir });
 
   return {
     ok: true,
@@ -580,6 +606,7 @@ async function runEdit(config, rawArgs) {
     size: request.size,
     quality: request.quality,
     outputFormat: request.outputFormat,
+    outputDir,
     images,
   };
 }
@@ -609,7 +636,7 @@ async function runBatch(config, rawArgs) {
       const job = args.jobs[index];
       const outputName = job.outputName || `${String(index + 1).padStart(3, "0")}-${promptSlug(job.prompt)}`;
       try {
-        const result = await runGenerate(config, { ...job, outputName }, {
+        const result = await runGenerate(config, { ...job, outputName, outputDir: args.outputDir }, {
           operation: "generate_image_batch",
           prefix: `${String(index + 1).padStart(3, "0")}-${timestampSlug()}`,
         });
@@ -643,6 +670,7 @@ async function runBatch(config, rawArgs) {
     concurrency,
     totalJobs: args.jobs.length,
     totalImages,
+    outputDir: outputDirForCall(config, args),
     imagePaths,
     jobs: results,
   };
@@ -650,7 +678,7 @@ async function runBatch(config, rawArgs) {
 
 const generateImageTool = {
   name: "generate_image",
-  description: "Generate images from a text prompt using gpt-image-2.",
+  description: "Generate images from a text prompt using gpt-image-2. Requests may take several minutes; this server is configured with a 600-second tool timeout. Returns absolute output paths. Set outputDir to a writable local directory for this request when the configured default is unavailable.",
   inputSchema: {
     type: "object",
     properties: {
@@ -661,6 +689,7 @@ const generateImageTool = {
       outputCompression: { type: "integer", minimum: 0, maximum: 100, description: "Only for jpeg/webp." },
       n: { type: "integer", minimum: 1, maximum: 10 },
       outputName: { type: "string", description: "Optional output filename stem." },
+      outputDir: { type: "string", description: "Optional writable local directory for this request's output files. Overrides configured outputDir." },
       moderation: { type: "string", enum: ["auto", "low"] },
     },
     required: ["prompt"],
@@ -668,19 +697,27 @@ const generateImageTool = {
   },
 };
 
+const batchJobInputSchema = {
+  ...generateImageTool.inputSchema,
+  properties: Object.fromEntries(
+    Object.entries(generateImageTool.inputSchema.properties).filter(([name]) => name !== "outputDir")
+  ),
+};
+
 const generateImageBatchTool = {
   name: "generate_image_batch",
-  description: "Generate many prompt jobs with gpt-image-2 using bounded concurrency.",
+  description: "Generate many prompt jobs with gpt-image-2 using bounded concurrency. Requests may take several minutes; this server is configured with a 600-second tool timeout. Returns absolute output paths. Set outputDir to one writable local directory for all jobs in this batch.",
   inputSchema: {
     type: "object",
     properties: {
       jobs: {
         type: "array",
         minItems: 1,
-        items: generateImageTool.inputSchema,
+        items: batchJobInputSchema,
       },
       concurrency: { type: "integer", minimum: 1 },
       failFast: { type: "boolean" },
+      outputDir: { type: "string", description: "Optional writable local directory for every job's output files. Overrides configured outputDir." },
     },
     required: ["jobs"],
     additionalProperties: false,
@@ -689,7 +726,7 @@ const generateImageBatchTool = {
 
 const editImageTool = {
   name: "edit_image",
-  description: "Edit one or more local image files with gpt-image-2.",
+  description: "Edit one or more local image files with gpt-image-2. Requests may take several minutes; this server is configured with a 600-second tool timeout. Returns absolute output paths. Set outputDir to a writable local directory for this request when the configured default is unavailable.",
   inputSchema: {
     type: "object",
     properties: {
@@ -707,6 +744,7 @@ const editImageTool = {
       outputFormat: { type: "string", enum: ["png", "jpeg", "jpg", "webp"] },
       n: { type: "integer", minimum: 1, maximum: 10 },
       outputName: { type: "string", description: "Optional output filename stem." },
+      outputDir: { type: "string", description: "Optional writable local directory for this request's output files. Overrides configured outputDir." },
       moderation: { type: "string", enum: ["auto", "low"] },
     },
     required: ["imagePaths", "prompt"],
@@ -749,7 +787,7 @@ async function main() {
   const config = await loadConfig();
   const server = new Server({
     name: "misaka-gpt-image-agent",
-    version: "0.1.0",
+    version: "1.0.0",
   }, {
     capabilities: {
       tools: {},
@@ -784,7 +822,9 @@ async function main() {
   log(`ready; outputDir=${config.outputDir}`);
 }
 
-main().catch((error) => {
-  console.error(`[misaka-gpt-image-agent] fatal: ${error.stack || error.message}`);
-  process.exit(1);
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+  main().catch((error) => {
+    console.error(`[misaka-gpt-image-agent] fatal: ${error.stack || error.message}`);
+    process.exit(1);
+  });
+}

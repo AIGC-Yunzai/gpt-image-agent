@@ -1,6 +1,6 @@
 {
   "name": "misaka-gpt-image-agent",
-  "version": "0.1.0+codex.20260730135128",
+  "version": "1.0.0",
   "description": "Generate and edit images with GPT Image 2 through a local MCP server.",
   "author": {
     "name": "Misaka"

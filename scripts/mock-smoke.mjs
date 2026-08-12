@@ -1,15 +1,20 @@
 import fs from "node:fs/promises";
 import http from "node:http";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { expandHomeDirectory } from "../server/index.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const pluginRoot = path.resolve(path.dirname(__filename), "..");
 const tmpDir = path.join(pluginRoot, ".tmp", "mock-smoke");
-const outputDir = path.join(tmpDir, "out");
+const defaultOutputDir = path.join(tmpDir, "default-out");
+const generateOutputDir = path.join(tmpDir, "generate-out");
+const batchOutputDir = path.join(tmpDir, "batch-out");
+const editOutputDir = path.join(tmpDir, "edit-out");
 const configPath = path.join(tmpDir, "config.json");
 const sourceImagePath = path.join(tmpDir, "source.png");
 const png1x1 = Buffer.from(
@@ -84,7 +89,7 @@ async function main() {
     baseUrl: mock.baseUrl,
     apiKey: "test-key",
     model: "gpt-image-2",
-    outputDir,
+    outputDir: defaultOutputDir,
     defaultSize: "1024x1024",
     defaultQuality: "medium",
     defaultOutputFormat: "png",
@@ -104,7 +109,7 @@ async function main() {
       MISAKA_GPT_IMAGE_API_KEY: "",
     },
   });
-  const client = new Client({ name: "misaka-gpt-image-agent-smoke", version: "0.1.0" });
+  const client = new Client({ name: "misaka-gpt-image-agent-smoke", version: "1.0.0" });
   await client.connect(transport);
 
   const tools = await client.listTools();
@@ -113,6 +118,9 @@ async function main() {
     "generate_image",
     "generate_image_batch",
   ]);
+  const batchTool = tools.tools.find((tool) => tool.name === "generate_image_batch");
+  assert.ok(batchTool.inputSchema.properties.outputDir);
+  assert.equal(batchTool.inputSchema.properties.jobs.items.properties.outputDir, undefined);
 
   const generated = await client.callTool({
     name: "generate_image",
@@ -120,10 +128,23 @@ async function main() {
       prompt: "mock cat",
       n: 2,
       outputName: "mock-cat",
+      outputDir: generateOutputDir,
     },
   });
   const generatedJson = JSON.parse(generated.content[0].text);
+  assert.equal(generatedJson.ok, true, generated.content[0].text);
   assert.equal(generatedJson.images.length, 2);
+  assert.equal(generatedJson.outputDir, generateOutputDir);
+
+  const defaultGenerated = await client.callTool({
+    name: "generate_image",
+    arguments: {
+      prompt: "mock default output",
+      outputName: "default-output",
+    },
+  });
+  const defaultGeneratedJson = JSON.parse(defaultGenerated.content[0].text);
+  assert.equal(defaultGeneratedJson.outputDir, defaultOutputDir);
 
   const batch = await client.callTool({
     name: "generate_image_batch",
@@ -133,11 +154,14 @@ async function main() {
         { prompt: "mock portrait", outputName: "portrait" },
       ],
       concurrency: 2,
+      outputDir: batchOutputDir,
     },
   });
   const batchJson = JSON.parse(batch.content[0].text);
   assert.equal(batchJson.ok, true);
   assert.equal(batchJson.jobs.length, 2);
+  assert.equal(batchJson.outputDir, batchOutputDir);
+  assert.ok(batchJson.imagePaths.every((outPath) => outPath.startsWith(batchOutputDir)));
 
   const edited = await client.callTool({
     name: "edit_image",
@@ -145,13 +169,20 @@ async function main() {
       imagePaths: [sourceImagePath],
       prompt: "turn it blue",
       outputName: "edited",
+      outputDir: editOutputDir,
     },
   });
   const editedJson = JSON.parse(edited.content[0].text);
   assert.equal(editedJson.images.length, 1);
+  assert.equal(editedJson.outputDir, editOutputDir);
+  assert.ok(editedJson.images.every((image) => image.path.startsWith(editOutputDir)));
+
+  assert.equal(expandHomeDirectory("~"), os.homedir());
+  assert.equal(expandHomeDirectory("~/.codex/test-output"), path.join(os.homedir(), ".codex", "test-output"));
 
   const allPaths = [
     ...generatedJson.images.map((image) => image.path),
+    ...defaultGeneratedJson.images.map((image) => image.path),
     ...batchJson.imagePaths,
     ...editedJson.images.map((image) => image.path),
   ];
@@ -160,7 +191,7 @@ async function main() {
     assert.ok(stat.size > 0);
   }
 
-  assert.equal(mock.requests.filter((request) => request.url === "/v1/images/generations").length, 3);
+  assert.equal(mock.requests.filter((request) => request.url === "/v1/images/generations").length, 4);
   assert.equal(mock.requests.filter((request) => request.url === "/v1/images/edits").length, 1);
 
   await client.close();
@@ -168,7 +199,7 @@ async function main() {
   console.log(JSON.stringify({
     ok: true,
     requests: mock.requests.length,
-    outputDir,
+    outputDir: defaultOutputDir,
     files: allPaths,
   }, null, 2));
 }

@@ -5,7 +5,7 @@ description: "Generate, batch-generate, or edit images through the local GPT Ima
 
 # GPT Image 2
 
-Use the `misaka-gpt-image-agent` MCP tools for image work:
+Directly call the registered `misaka-gpt-image-agent` MCP tools for image work. Do not create a temporary Node/MCP client, manually launch `server/index.mjs`, or rewrite `config/config.json` for an individual request.
 
 - `generate_image` for one prompt.
 - `generate_image_batch` for many prompt jobs.
@@ -16,6 +16,9 @@ Use the `misaka-gpt-image-agent` MCP tools for image work:
 - Use `gpt-image-2` by default.
 - API keys are read from `config/config.json` as `apiKey`. `MISAKA_GPT_IMAGE_API_KEY` is only a fallback.
 - Generated images are saved as local files. Report absolute output paths and render previews with Markdown image syntax when useful.
+- Image generation and editing may take several minutes. The registered MCP server has a 600-second tool timeout; call the tool normally and allow it to finish rather than building a separate client with a shorter default timeout.
+- Always pass `outputDir` with the absolute path of the user's intended working/project directory for every generation or edit. Prefer the current task workspace when the user has not named another output location; do not first try the configured default output folder. `generate_image_batch` accepts one top-level `outputDir` shared by every job; do not put `outputDir` inside individual jobs.
+- Each successful result includes the effective `outputDir` and absolute paths for its output files.
 - For exact dimensions, pass `size` as `WIDTHxHEIGHT`, for example `1024x1024`, `2048x1152`, `3840x2160`, or `2160x3840`.
 - Use `quality: "low"` for drafts, `"medium"` for normal work, and `"high"` for final images.
 - Do not ask for or pass transparent backgrounds with `gpt-image-2`; it does not support `background=transparent`.
