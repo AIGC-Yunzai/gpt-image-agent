@@ -17,6 +17,7 @@ const batchOutputDir = path.join(tmpDir, "batch-out");
 const editOutputDir = path.join(tmpDir, "edit-out");
 const configPath = path.join(tmpDir, "config.json");
 const sourceImagePath = path.join(tmpDir, "source.png");
+const unusableOutputPath = path.join(tmpDir, "not-a-directory");
 const png1x1 = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
   "base64"
@@ -83,6 +84,7 @@ async function main() {
   await fs.rm(tmpDir, { recursive: true, force: true });
   await fs.mkdir(tmpDir, { recursive: true });
   await fs.writeFile(sourceImagePath, png1x1);
+  await fs.writeFile(unusableOutputPath, "this file cannot be used as an output directory");
 
   const mock = await startMockServer();
   await fs.writeFile(configPath, JSON.stringify({
@@ -121,6 +123,39 @@ async function main() {
   const batchTool = tools.tools.find((tool) => tool.name === "generate_image_batch");
   assert.ok(batchTool.inputSchema.properties.outputDir);
   assert.equal(batchTool.inputSchema.properties.jobs.items.properties.outputDir, undefined);
+
+  for (const request of [
+    {
+      name: "generate_image",
+      arguments: {
+        prompt: "must not reach the image API",
+        outputDir: unusableOutputPath,
+      },
+    },
+    {
+      name: "generate_image_batch",
+      arguments: {
+        jobs: [{ prompt: "must not reach the batch image API" }],
+        outputDir: unusableOutputPath,
+      },
+    },
+    {
+      name: "edit_image",
+      arguments: {
+        imagePaths: [sourceImagePath],
+        prompt: "must not reach the edit image API",
+        outputDir: unusableOutputPath,
+      },
+    },
+  ]) {
+    const invalidOutput = await client.callTool(request);
+    const invalidOutputJson = JSON.parse(invalidOutput.content[0].text);
+    assert.equal(invalidOutput.isError, true);
+    assert.equal(invalidOutputJson.ok, false);
+    assert.match(invalidOutputJson.error, /Output directory is not usable/);
+    assert.match(invalidOutputJson.error, new RegExp(unusableOutputPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+  assert.equal(mock.requests.length, 0, "output paths must be checked before API requests");
 
   const generated = await client.callTool({
     name: "generate_image",
@@ -191,7 +226,11 @@ async function main() {
     assert.ok(stat.size > 0);
   }
 
-  assert.equal(mock.requests.filter((request) => request.url === "/v1/images/generations").length, 4);
+  assert.equal(
+    mock.requests.filter((request) => request.url === "/v1/images/generations").length,
+    4,
+    JSON.stringify(mock.requests.map((request) => request.url))
+  );
   assert.equal(mock.requests.filter((request) => request.url === "/v1/images/edits").length, 1);
 
   await client.close();

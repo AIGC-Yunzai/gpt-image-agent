@@ -156,6 +156,31 @@ function outputDirForCall(config, args) {
   return args.outputDir ? resolveOutputDir(args.outputDir) : config.outputDir;
 }
 
+async function ensureOutputDirUsable(outputDir) {
+  const probePath = path.join(
+    outputDir,
+    `.misaka-gpt-image-agent-write-test-${process.pid}-${randomUUID()}.tmp`
+  );
+
+  try {
+    await fs.mkdir(outputDir, { recursive: true });
+    const stat = await fs.stat(outputDir);
+    if (!stat.isDirectory()) {
+      throw new Error("path exists but is not a directory");
+    }
+    await fs.writeFile(probePath, "write-test", { flag: "wx" });
+    await fs.unlink(probePath);
+  } catch (error) {
+    try {
+      await fs.unlink(probePath);
+    } catch {
+      // Ignore cleanup failures and report the original usability error.
+    }
+    const reason = error?.code ? `${error.code}: ${error.message}` : error.message;
+    throw new Error(`Output directory is not usable: ${outputDir}. ${reason}`);
+  }
+}
+
 function normalizeBaseUrl(raw) {
   if (!raw || typeof raw !== "string") {
     throw new Error("config.baseUrl is required");
@@ -555,6 +580,7 @@ async function runGenerate(config, rawArgs, context = {}) {
   const args = parseArgs(GenerateArgsSchema, rawArgs);
   const request = buildGeneratePayload(config, args);
   const outputDir = outputDirForCall(config, args);
+  await ensureOutputDirUsable(outputDir);
   const response = await requestJson(config, "/images/generations", request.payload);
   const images = await saveImageResponse(config, response, args, request, { ...context, outputDir });
 
@@ -576,6 +602,7 @@ async function runEdit(config, rawArgs) {
   const args = parseArgs(EditArgsSchema, rawArgs);
   const request = buildEditFields(config, args);
   const outputDir = outputDirForCall(config, args);
+  await ensureOutputDirUsable(outputDir);
   const imageFiles = [];
   for (const imagePath of args.imagePaths) {
     imageFiles.push({
@@ -621,6 +648,8 @@ async function runBatch(config, rawArgs) {
     throw new Error(`Batch would create ${totalImages} images; maxTotalImagesPerBatch is ${config.maxTotalImagesPerBatch}`);
   }
 
+  const outputDir = outputDirForCall(config, args);
+  await ensureOutputDirUsable(outputDir);
   const concurrency = Math.min(args.concurrency || config.maxBatchConcurrency, config.maxBatchConcurrency);
   const results = new Array(args.jobs.length);
   let nextIndex = 0;
@@ -670,7 +699,7 @@ async function runBatch(config, rawArgs) {
     concurrency,
     totalJobs: args.jobs.length,
     totalImages,
-    outputDir: outputDirForCall(config, args),
+    outputDir,
     imagePaths,
     jobs: results,
   };
