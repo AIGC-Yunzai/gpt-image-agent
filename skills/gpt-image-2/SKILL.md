@@ -27,6 +27,18 @@ Directly call the registered `misaka-gpt-image-agent` MCP tools for image work. 
 
 ## Prompting
 
-Keep prompts specific enough to be useful, but do not add unrelated subjects, brands, text, or arbitrary story details. Include intended use, style, composition, lighting, constraints, and exact text only when they matter.
+These tools generate images with GPT Image 2. Before every tool call, rewrite the user's request as a natural-language prompt optimized for GPT Image 2 while preserving the user's intent. Do not use Midjourney flags, Stable Diffusion weights, tag dumps, or separate negative-prompt syntax.
+
+Structure the prompt with the relevant details in this order:
+
+1. Intended use and image type.
+2. Main subject, appearance, pose, and action.
+3. Environment, framing, composition, viewpoint, and spatial relationships.
+4. Visual style, medium, materials, and level of realism.
+5. Lighting, color palette, mood, and important fine details.
+6. Exact visible text in quotes, including spelling, capitalization, placement, and line breaks.
+7. Explicit constraints: what must be present, what must remain unchanged, and what must not appear.
+
+Use clear sentences and concrete visual descriptions. Do not add unrelated subjects, brands, text, or arbitrary story details. For edits, state both the requested changes and the elements that must remain unchanged. If the user's prompt is already complete, keep it rather than embellishing it unnecessarily.
 
 For batches, make one job per distinct asset. Use clear `outputName` values so filenames are useful.
